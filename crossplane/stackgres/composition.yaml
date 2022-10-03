@@ -1,0 +1,380 @@
+---
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: postgresql
+spec:
+  compositeTypeRef:
+    apiVersion: appcat.vshn.net/v1
+    kind: XPostgreSQLInstance
+  writeConnectionSecretsToNamespace: crossplane-system
+  patchSets:
+    - name: annotations
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.annotations
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.labels
+    - name: namespace
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.labels[crossplane.io/composite]
+        toFieldPath: spec.forProvider.manifest.metadata.namespace
+        transforms:
+          - type: string
+            string:
+              fmt: "sv-postgresql-%s"
+  resources:
+    # namespace
+    - base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: v1
+              kind: Namespace  # Let the composition manage the namespace, Crossplane will clean it up if deprovisioned
+              metadata:
+                name: "" # patched from composite
+      patches:
+        - type: PatchSet
+          patchSetName: annotations
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.forProvider.manifest.metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "sv-postgresql-%s"
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-namespace"
+    # cluster profile
+    - base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: stackgres.io/v1
+              kind: SGInstanceProfile
+              metadata:
+                name: '' #patched
+              spec:
+                cpu: "200m"
+                memory: '' #patched
+      patches:
+        - type: PatchSet
+          patchSetName: annotations
+      # name of the wrapping object
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-profile"
+      # name of the profile object
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.forProvider.manifest.metadata.name
+        # namespace of the profile object
+        - type: PatchSet
+          patchSetName: namespace
+      # memory
+        - fromFieldPath: spec.parameters.resources.limits.memory
+          toFieldPath: spec.forProvider.manifest.spec.memory
+    # postgres cluster
+    - base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: stackgres.io/v1
+              kind: SGCluster
+              metadata:
+                name: "" #patched
+              spec:
+                configurations:
+                  # sgBackupConfig: '' #patched
+                instances: 1
+                postgres:
+                  version: '' #patched
+                sgInstanceProfile: '' #patched
+                prometheusAutobind: true
+                pods:
+                  persistentVolume:
+                    size: "" #patched
+      patches:
+        - type: PatchSet
+          patchSetName: annotations
+      # patch SGCluster name
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.forProvider.manifest.metadata.name
+      # patch SGCluster namespace
+        - type: PatchSet
+          patchSetName: namespace
+      # patch SGCluster storage size
+        - fromFieldPath: spec.parameters.resources.storageSize
+          toFieldPath: spec.forProvider.manifest.spec.pods.persistentVolume.size
+      # patch SGCluster version
+        - fromFieldPath: spec.parameters.updatePolicy.version
+          toFieldPath: spec.forProvider.manifest.spec.postgres.version
+      # instance profile
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.forProvider.manifest.spec.sgInstanceProfile
+      # patch object name
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-cluster"
+    # maintenance service account
+    - base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: v1
+              kind: ServiceAccount
+              metadata:
+                name: maintenance
+                namespace: '' # patched
+      patches:
+        - type: PatchSet
+          patchSetName: annotations
+      # name of wrapping object
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-maintenance-service-account"
+      # namespace patch
+        - type: PatchSet
+          patchSetName: namespace
+    # clusterrolebinding for maintenance SA
+    - base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              kind: ClusterRoleBinding
+              apiVersion: rbac.authorization.k8s.io/v1
+              metadata:
+                name: '' # patched
+              subjects:
+              - kind: ServiceAccount
+                name: maintenance
+                namespace: '' #patched
+              roleRef:
+                kind: ClusterRole
+                name: cluster-admin
+                apiGroup: rbac.authorization.k8s.io
+      patches:
+        - type: PatchSet
+          patchSetName: annotations
+        # name of the wrapping object
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-maintenance-service-account"
+      # name of the clusterrole
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.forProvider.manifest.metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-maintenance-service-account"
+      # service account namespace patch
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.forProvider.manifest.subjects[0].namespace
+          transforms:
+            - type: string
+              string:
+                fmt: "sv-postgresql-%s"
+    # configmap with maintenance ops
+    - base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: apply-security-configmap
+                namespace: '' # patched
+              data:
+                apply-security.sh: |
+                  #!/bin/sh
+                  set -e
+
+                  kubectl -n ${TARGET_NAMESPACE} delete sgdbops securityupgrade || true
+
+                  cat <<EOF | kubectl apply -f -
+                  apiVersion: stackgres.io/v1
+                  kind: SGDbOps
+                  metadata:
+                    name: securityupgrade
+                    namespace: ${TARGET_NAMESPACE}
+                  spec:
+                   sgCluster: ${TARGET_INSTANCE}
+                   op: securityUpgrade
+                   maxRetries: 1
+                   securityUpgrade:
+                     method: InPlace
+                  EOF
+      patches:
+        - type: PatchSet
+          patchSetName: annotations
+        # name of wrapping object
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-security-configmap"
+      # namespace patch
+        - type: PatchSet
+          patchSetName: namespace
+    # maintenance
+    - base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: batch/v1
+              kind: CronJob
+              metadata:
+                name: securitymaintenance
+                namespace: '' # patched
+              spec:
+                schedule: '00 22 * * 2' # patched
+                jobTemplate:
+                  spec:
+                    template:
+                      spec:
+                        serviceAccountName: maintenance
+                        containers:
+                        - name: apply
+                          image: docker.io/bitnami/kubectl:latest
+                          imagePullPolicy: IfNotPresent
+                          env:
+                            - name: TARGET_NAMESPACE
+                              value: '' # patched
+                            - name: TARGET_INSTANCE
+                              value: '' # patched
+                          command:
+                            - sh
+                          args:
+                            - /scripts/apply-security.sh
+                          volumeMounts:
+                            - mountPath: /scripts
+                              name: scripts
+                        restartPolicy: OnFailure
+                        volumes:
+                          - name: scripts
+                            configMap:
+                              name: apply-security-configmap
+
+      patches:
+        - type: PatchSet
+          patchSetName: annotations
+      # name of wrapping object
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-security-schedule"
+      # namespace patch
+        - type: PatchSet
+          patchSetName: namespace
+      # schedule patch
+        - fromFieldPath: spec.parameters.updatePolicy.securityUpdates
+          toFieldPath: spec.forProvider.manifest.spec.schedule
+      # target namespace patch
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.forProvider.manifest.spec.jobTemplate.spec.template.spec.containers[*].env[0].value
+          transforms:
+            - type: string
+              string:
+                fmt: "sv-postgresql-%s"
+      # target insntance patch
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.forProvider.manifest.spec.jobTemplate.spec.template.spec.containers[*].env[1].value
+    # connection secret
+    # This is not the crossplane way to do this. But as we're using a vanilla operator here
+    # we have to be a bit creative.
+    - base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: '' #patched
+                namespace: '' # patched
+              stringData:
+                username: postgres
+                port: "5432"
+                endpoint: '' #patched
+          references:
+          # get the passwords from the operator's secret
+            - patchesFrom:
+                apiVersion: v1
+                kind: Secret
+                namespace: '' # patched
+                name: '' #patched
+                fieldPath: data.superuser-password
+              toFieldPath: data.password
+      patches:
+        - type: PatchSet
+          patchSetName: annotations
+      # namespace of the target secret
+        - fromFieldPath: metadata.labels[crossplane.io/claim-namespace]
+          toFieldPath: spec.forProvider.manifest.metadata.namespace
+      # name of the wrapping object resource
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-connection"
+      # name of the target secret
+        - fromFieldPath: metadata.labels[crossplane.io/claim-name]
+          toFieldPath: spec.forProvider.manifest.metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-connection"
+      # namespace of source secret
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.references[0].patchesFrom.namespace
+          transforms:
+            - type: string
+              string:
+                fmt: "sv-postgresql-%s"
+      # name of source secret
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.references[0].patchesFrom.name
+      # endpoint
+        - toFieldPath: spec.forProvider.manifest.stringData.endpoint
+          type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: metadata.labels[crossplane.io/composite]
+              - fromFieldPath: metadata.labels[crossplane.io/composite]
+            strategy: string
+            string:
+              fmt: "%s.sv-postgresql-%s.svc.cluster.local"

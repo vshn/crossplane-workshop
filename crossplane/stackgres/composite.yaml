@@ -1,0 +1,96 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  labels:
+    service.appcat.vshn.net/id: postgresql-k8s
+    service.appcat.vshn.net/name: postgresql-k8s
+    service.appcat.vshn.net/updatable: "true"
+  name: xpostgresqlinstances.appcat.vshn.net
+spec:
+  connectionSecretKeys:
+    - endpoint
+    - port
+    - password
+  group: appcat.vshn.net
+  names:
+    kind: XPostgreSQLInstance
+    plural: xpostgresqlinstances
+  claimNames:
+    kind: PostgreSQLInstance
+    plural: postgresqlinstances
+  defaultCompositionRef:
+    name: postgresql
+  versions:
+    - additionalPrinterColumns:
+        - jsonPath: .spec.parameters.resources.storageSize
+          name: Storage
+          type: string
+      name: v1
+      referenceable: true
+      served: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - parameters
+              properties:
+                parameters:
+                  type: object
+                  required:
+                    - resources
+                    - updatePolicy
+                  properties:
+                    resources:
+                      type: object
+                      description: Resources describes the compute resource requirements
+                        (cpu, memory, storage)
+                      required:
+                        - storageSize
+                      properties:
+                        storageSize:
+                          # we may need to use integer so that a policy engine can compare sizes and enforce a minimum and maximum size,
+                          # unless policy engine supports unit suffixes like "Gi".
+                          type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        limits:
+                          additionalProperties:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          description: 'Limits describes the maximum amount of compute resources
+                            allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          type: object
+                        requests:
+                          additionalProperties:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          description: 'Requests describes the minimum amount of compute
+                            resources required. If Requests is omitted for a container,
+                            it defaults to Limits if that is explicitly specified, otherwise
+                            to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          type: object
+                    updatePolicy:
+                      type: object
+                      required:
+                        - version
+                      properties:
+                        version:
+                          type: string
+                        securityUpdates:
+                          type: string
+                          description: cron schedule when to apply security updates.
+                          # default: '00 22 * * 2'
+                    alerts:
+                      type: object
+                      properties:
+                        enabled:
+                          type: boolean
+                          default: false

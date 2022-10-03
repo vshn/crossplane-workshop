@@ -1,0 +1,128 @@
+stages:
+- render
+- export
+- build
+
+variables:
+  SOURCE: slides.adoc
+  HTML_FILE: slides.html
+  PDF_FILE: slides.pdf
+  HTML_WITH_NOTES_FILE: slides-with-notes.html
+  PDF_WITH_NOTES_FILE: slides-with-notes.pdf
+  ASSETS: assets
+
+container:
+  stage: build
+  image: docker:stable
+  services:
+    - docker:dind
+  tags:
+    - dockerbuild
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - docker build -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_TAG" .
+    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_TAG"
+  only:
+    - tags
+
+html-with-notes:
+  stage: render
+  image:
+    name: docker.io/vshn/asciidoctor-slides:1.15.1
+    entrypoint:
+    - /bin/sh
+    - -c
+  script:
+  - cp -R ${ASSETS} /build/${ASSETS}
+  - cp ${SOURCE} /build/${SOURCE}
+  - cd /presentation
+  - generate-vshn-slides --show-notes --filename ${SOURCE} --output ${HTML_WITH_NOTES_FILE}
+  - cp /presentation/${HTML_WITH_NOTES_FILE} ${CI_PROJECT_DIR}
+  - cp -R /presentation/theme ${CI_PROJECT_DIR}/theme
+  - cp -R /presentation/node_modules ${CI_PROJECT_DIR}/node_modules
+  # We need artifacts in the decktape job
+  artifacts:
+    name: "${CI_PROJECT_NAME}_${CI_COMMIT_REF_SLUG}_${CI_JOB_NAME}"
+    paths:
+    - ${HTML_WITH_NOTES_FILE}
+    - assets
+    - theme
+    - node_modules/asciinema-player
+    - node_modules/reveal.js
+    - node_modules/highlightjs
+    - node_modules/lato-font
+    - node_modules/typeface-ubuntu
+    - node_modules/typeface-ubuntu-mono
+    - node_modules/@fortawesome
+    - node_modules/@fontsource
+
+html:
+  stage: render
+  image:
+    name: docker.io/vshn/asciidoctor-slides:1.15.1
+    entrypoint:
+    - /bin/sh
+    - -c
+  script:
+  - cp -R ${ASSETS} /build/${ASSETS}
+  - cp ${SOURCE} /build/${SOURCE}
+  - cd /presentation
+  - generate-vshn-slides --filename ${SOURCE}
+  - cp /build/${HTML_FILE} ${CI_PROJECT_DIR}
+  - cp -R /presentation/theme ${CI_PROJECT_DIR}/theme
+  - cp -R /presentation/node_modules ${CI_PROJECT_DIR}/node_modules
+  # We need artifacts in the decktape job
+  artifacts:
+    name: "${CI_PROJECT_NAME}_${CI_COMMIT_REF_SLUG}_${CI_JOB_NAME}"
+    paths:
+    - ${HTML_FILE}
+    - assets
+    - theme
+    - node_modules/asciinema-player
+    - node_modules/reveal.js
+    - node_modules/highlightjs
+    - node_modules/lato-font
+    - node_modules/typeface-ubuntu
+    - node_modules/typeface-ubuntu-mono
+    - node_modules/@fortawesome
+    - node_modules/@fontsource
+
+pdf-with-notes:
+  stage: export
+  image:
+    name: docker.io/astefanutti/decktape:3.4.0
+    entrypoint:
+    - /bin/sh
+    - -c
+  script:
+  - node /decktape/decktape.js
+    --chrome-path chromium-browser
+    --chrome-arg=-no-sandbox
+    --size '1920x1080'
+    --pause 2000
+    --chrome-arg=--allow-file-access-from-files $(pwd)/${HTML_WITH_NOTES_FILE}
+    ${PDF_WITH_NOTES_FILE}
+  artifacts:
+    name: "${CI_PROJECT_NAME}_${CI_COMMIT_REF_SLUG}_${CI_JOB_NAME}"
+    paths:
+    - ${PDF_WITH_NOTES_FILE}
+
+pdf:
+  stage: export
+  image:
+    name: docker.io/astefanutti/decktape:3.4.0
+    entrypoint:
+    - /bin/sh
+    - -c
+  script:
+  - node /decktape/decktape.js
+    --chrome-path chromium-browser
+    --chrome-arg=-no-sandbox
+    --size '1920x1080'
+    --pause 2000
+    --chrome-arg=--allow-file-access-from-files $(pwd)/${HTML_FILE}
+    ${PDF_FILE}
+  artifacts:
+    name: "${CI_PROJECT_NAME}_${CI_COMMIT_REF_SLUG}_${CI_JOB_NAME}"
+    paths:
+    - ${PDF_FILE}

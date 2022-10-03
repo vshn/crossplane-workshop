@@ -1,0 +1,67 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: cloudpostgresql
+spec:
+  compositeTypeRef:
+    apiVersion: appcat.vshn.net/v1
+    kind: XClousPostgreSQL
+  writeConnectionSecretsToNamespace: crossplane-system
+  patchSets:
+    - name: annotations
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.annotations
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.labels
+  resources:
+    - base:
+        apiVersion: database.gcp.crossplane.io/v1beta1
+        kind: CloudSQLInstance
+        spec:
+          forProvider:
+            databaseVersion: POSTGRES_14
+            region: europe-west6
+            settings:
+              tier: db-custom-1-3840
+              dataDiskSizeGb: 20
+              ipConfiguration:
+                authorizedNetworks:
+                  - name: all
+                    value: '0.0.0.0/0'
+          providerConfigRef:
+            name: default
+          writeConnectionSecretToRef:
+            name: workshop-cloudsql-connection-details
+            namespace: crossplane-system
+      connectionDetails:
+        - fromConnectionSecretKey: endpoint
+          type: FromConnectionSecretKey
+          name: endpoint
+        - fromConnectionSecretKey: password
+          type: FromConnectionSecretKey
+          name: password
+        - fromConnectionSecretKey: username
+          type: FromConnectionSecretKey
+          name: username
+        - fromConnectionSecretKey: serverCACertificateCert
+          type: FromConnectionSecretKey
+          name: ca
+      patches:
+        - type: PatchSet
+          patchSetName: annotations
+        - type: CombineFromComposite
+          combine:
+            variables:
+            - fromFieldPath: spec.parameters.resources.cpu
+            - fromFieldPath: spec.parameters.resources.cpu
+            strategy: string
+            string:
+              fmt: "db-custom-%s-%s"
+          toFieldPath: spec.forProvider.settings.tier
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.resources.storageSize
+          toFieldPath: spec.forProvider.settings.dataDiskSizeGb
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.writeConnectionSecretToRef.name

@@ -1,0 +1,61 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  labels:
+    service.appcat.vshn.net/id: postgresql-k8s
+    service.appcat.vshn.net/name: postgresql-k8s
+    service.appcat.vshn.net/updatable: "true"
+  name: xterraformpostgresqls.appcat.vshn.net
+spec:
+  connectionSecretKeys:
+    - endpoint
+    - password
+    - username
+    - ca
+  group: appcat.vshn.net
+  names:
+    kind: XTerraformPostgreSQL
+    plural: xterraformpostgresqls
+  claimNames:
+    kind: TerraformPostgreSQL
+    plural: terraformpostgresqls
+  defaultCompositionRef:
+    name: terraformpostgresql
+  versions:
+    - additionalPrinterColumns:
+        - jsonPath: .spec.parameters.resources.storageSize
+          name: Storage
+          type: string
+      name: v1
+      referenceable: true
+      served: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - parameters
+              properties:
+                parameters:
+                  type: object
+                  # required:
+                  #   - resources
+                  #   - updatePolicy
+                  properties:
+                    resources:
+                      type: object
+                      description: Resources describes the compute resource requirements
+                        (cpu, memory, storage)
+                      # required:
+                      #   - storageSize
+                      properties:
+                        storageSize:
+                          type: integer
+                        cpu:
+                          type: integer
+                        memory:
+                          type: integer
+                    backup:
+                      type: boolean

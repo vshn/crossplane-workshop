@@ -1,0 +1,265 @@
+:author: Simon Beck, Product Owner
+:doctitle: Crossplane
+:email: simon.beck@vshn.ch
+:producer: VSHN AG
+:creator: VSHN AG
+:revnumber: 1.0
+:revdate: {docdate}
+:copyright: CC-BY-SA 3.0
+:experimental:
+:icons: font
+
+:footer-text: VSHN – The DevOps Company
+:footer-image: vshn.svg
+:revealjs_customtheme: theme/vshn.css
+:title-slide-background-image: vshn-title-background.svg
+:title-slide-background-size: cover
+:title-image: vshn.svg
+
+= Title
+
+image::{title-image}[width=250]
+image:crossplane.svg[width=250]
+
+== Agenda
+
+. How Does Crossplane work?
+. Let's Build a GCP Service
+. Let's Build a Selfmade Service
+
+== Glossary
+
+* What's a managed resource? (MR)
+** A managed resource can be anything that's not part of Crossplane
+** CloudSQL Instance
+** Any K8s object
+** AWS S3 Bucket
+** etc.
+
+== Glossary
+
+* What's a Composite? (XRD)
+** Interface for a Composition
+** Basically a normal CRD
+** Some additional fields injected by Crossplane
+** Can optionally expose a claim
+** An instance of an XRD is called XR or Composite Resource
+* What's a Composition?
+** Implements a Composite
+** Deploys one or more Managed Resources
+** Patches values from the XR to the Managed Resource
+
+== Glossary
+
+* What's a Provider?
+** A Crossplane specific operator
+** Provides the Managed Resources
+** Talks to the external systems
+* What's a Crossplane Package
+** It's Crossplane's own packaging
+** Leverages OCI images to deploy K8s manifests
+** Dependency handling
+
+== How Does Crossplane Work?
+
+image:composition.svg[width=800]
+
+[.notes]
+--
+* A User or app creates a claim for a databse, the claim is namespaced
+* A claim is always coupled with an XR, that is an instance of the XRD, cluster wide
+* The composition then implements the logic of the XR, the composition copies values from the XR to the right places in the Managed Resources.
+* Managed Resources get picked up by the responsible provider, and they provision whatever is requested.
+--
+
+== How Does Crossplane Work?
+
+image:claims_and_xrs.svg[width=800]
+
+[.notes]
+--
+* A claim is optional
+* XRs are by themselves also valid Managed Resources that can be deployed via a composition
+* Examples: Firewall rules, network configs, PostgreSQL User Provisioning...
+--
+
+== Managed Resources
+
+* Specified by the Provider
+* Each cloud resource should map to a Managed Resource
+* Opinionated CRDs
+* Also have some Crossplane managed fields
+
+== Managed Resources
+
+[source,yaml]
+----
+apiVersion: exoscale.crossplane.io/v1
+kind: PostgreSQL
+metadata:
+  name: my-db
+spec:
+  forProvider: <1>
+    name: my-instance <2>
+  writeConnectionSecretToRef: <1>
+    namespace: crossplane-system <1>
+    name: aws-rdspostgresql-conn <1>
+status:
+  atProvider: <1>
+    version: "14.4" <2>
+  conditions: []
+----
+
+<1> Crossplane defined
+<2> Custom defined
+
+== Composites (XRD)
+
+* Abstract away platform details
+* Expose only what's needed
+* Make the API simple
+* Also opinionated by Crossplane
+
+== Composites (XRD)
+
+[source,yaml]
+----
+apiVersion: appcat.vshn.io/v1
+kind: ObjectBucket
+metadata:
+  name: my-cool-bucket
+  namespace: my-namespace
+spec:
+  parameters: <1>
+    bucketName: my-bucket-change-name <2>
+    region: rma <2>
+  writeConnectionSecretToRef: <1>
+    name: objectbucket-creds
+----
+
+<1> Crossplane defined
+<2> Custom defined
+
+Note: this is an XR not an XRD
+
+== Compositions
+
+* Specifies any number of Managed Resources
+* Can copy values from the claims to the Managed Resources
+* Very limited amount of operations available
+* No loops or conditionals
+* Can get very verbose
+
+== Compositions
+
+[source,yaml]
+----
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  labels:
+    name: exoscale.objectbuckets.appcat.vshn.io
+  name: exoscale.objectbuckets.appcat.vshn.io
+spec:
+  compositeTypeRef:
+    apiVersion: appcat.vshn.io/v1
+    kind: XObjectBucket
+  patchSets:
+    - name: annotations
+      patches:
+        - fromFieldPath: metadata.annotations
+          toFieldPath: metadata.annotations
+          type: FromCompositeFieldPath
+----
+
+== Compositions
+
+[source,yaml]
+----
+spec:
+  compositeTypeRef:
+    apiVersion: appcat.vshn.io/v1
+    kind: XObjectBucket
+  resources:
+    - base:
+        apiVersion: exoscale.crossplane.io/v1
+        kind: IAMKey
+        metadata: {}
+        spec: {}
+        providerConfigRef:
+          name: exoscale
+        writeConnectionSecretToRef:
+          name: ''
+          namespace: syn-provider-exoscale-secrets
+----
+== Compositions
+
+[source,yaml]
+----
+      patches:
+        - patchSetName: annotations
+          type: PatchSet
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: metadata.name
+          type: FromCompositeFieldPath
+        - combine:
+            strategy: string
+            string:
+              fmt: '%s.%s'
+            variables:
+              - fromFieldPath: metadata.labels[crossplane.io/claim-namespace]
+              - fromFieldPath: metadata.labels[crossplane.io/claim-name]
+          toFieldPath: spec.forProvider.keyName
+          type: CombineFromComposite
+----
+
+== Providers
+
+* Usually written in Go
+* Opinionated Operators
+* Provide framework to create your own
+* Some Examples
+** Provider-gcp
+** Provider-exoscale
+** Provider-kubernetes
+** Provider-helm
+
+== Questions?
+
+Any questions so far?
+
+== Let's Look at a CloudSQL
+
+== Let's Look at a Selfmade Service
+
+== How Do I Terraform?
+
+== Negative Points of Crossplane
+
+* No conditionals
+* No loops
+* Debugging rather difficult
+** Errors not always visible where expected
+* Very verbose YAMLing
+
+== Appcat?!
+
+Appcat consists of various things:
+
+* A catalog of services which can be self-service ordered directly from a Kubernetes cluster (via an well-defined API)
+** They have defined maturity stages that specify monitoring, backups, logs, etc.
+* A framework to build services to make them available in the catalog - having a unique application catalog identity
+** Helpers to generate crossplane artifacts
+** Self-made providers
+
+Everything is on Github
+
+== Thanks!
+
+image::{title-image}[width=250]
+
+{author} – {email}
+
+[.small]
+VSHN AG – Neugasse 10 – CH-8005 Zürich – +41 44 545 53 00 – https://vshn.ch – info@vshn.ch
+

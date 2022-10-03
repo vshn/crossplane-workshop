@@ -1,0 +1,13 @@
+apiVersion: appcat.vshn.net/v1
+kind: PostgreSQLInstance
+metadata:
+  name: postgres1
+spec:
+  parameters:
+    resources:
+      storageSize: 10Gi
+      limits:
+        memory: 1Gi
+    updatePolicy:
+      version: '14.4'
+      securityUpdates: '0 1 * * *'

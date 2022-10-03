@@ -1,0 +1,138 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: terraformpostgresql
+spec:
+  compositeTypeRef:
+    apiVersion: appcat.vshn.net/v1
+    kind: XTerraformPostgreSQL
+  writeConnectionSecretsToNamespace: crossplane-system
+  patchSets:
+    - name: annotations
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.annotations
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.labels
+  resources:
+    - base:
+        apiVersion: tf.crossplane.io/v1alpha1
+        kind: Workspace
+        spec:
+          forProvider:
+            source: Inline
+            module: |
+              resource "google_sql_database" "database" {
+                name     = var.name
+                instance = google_sql_database_instance.instance.name
+              }
+
+              variable "tier" {
+                type = string
+                description = "Tier string of the resource"
+              }
+
+              variable "name" {
+                type = string
+                description = "Name of the instance"
+              }
+
+              variable "disk" {
+                type = number
+                description = "Disk size in GB"
+              }
+
+              # See versions at https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#database_version
+              resource "google_sql_database_instance" "instance" {
+                name             = var.name
+                region           = "europe-west6"
+                database_version = "POSTGRES_14"
+                settings {
+                  tier = var.tier
+                  disk_size = var.disk
+                  ip_configuration {
+                    authorized_networks {
+                      name  = "all"
+                      value = "0.0.0.0/0"
+                    }
+                  }
+                }
+
+                deletion_protection  = "false"
+              }
+
+              resource "random_password" "password" {
+                length           = 32
+                special          = true
+                override_special = "!#$%&*()-_=+[]{}<>:?"
+              }
+
+              resource "google_sql_user" "users" {
+                name     = "postgres"
+                instance = google_sql_database_instance.instance.name
+                password = random_password.password.result
+              }
+
+              output "endpoint" {
+                value = google_sql_database_instance.instance.first_ip_address
+              }
+
+              output "username" {
+                value = "postgres"
+              }
+
+              output "password" {
+                value = random_password.password.result
+                sensitive = true
+              }
+
+              output "ca" {
+                value = google_sql_database_instance.instance.server_ca_cert[0].cert
+                sensitive = true
+              }
+
+            vars:
+            - key: tier
+              value: db-custom-1-3840
+            - key: name
+              value: my-db
+            - key: disk
+              value: "10"
+          writeConnectionSecretToRef:
+            namespace: default
+            name: '' #patched
+
+      connectionDetails:
+        - fromConnectionSecretKey: endpoint
+          type: FromConnectionSecretKey
+          name: endpoint
+        - fromConnectionSecretKey: password
+          type: FromConnectionSecretKey
+          name: password
+        - fromConnectionSecretKey: username
+          type: FromConnectionSecretKey
+          name: username
+        - fromConnectionSecretKey: ca
+          type: FromConnectionSecretKey
+          name: ca
+      patches:
+        - type: PatchSet
+          patchSetName: annotations
+        - type: CombineFromComposite
+          combine:
+            variables:
+            - fromFieldPath: spec.parameters.resources.cpu
+            - fromFieldPath: spec.parameters.resources.cpu
+            strategy: string
+            string:
+              fmt: "db-custom-%s-%s"
+          toFieldPath: spec.forProvider.vars[0].value
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.writeConnectionSecretToRef.name
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.forProvider.vars[1].value
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.resources.storageSize
+          toFieldPath: spec.forProvider.vars[2].value

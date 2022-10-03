@@ -1,0 +1,46 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  labels:
+    service.syn.tools/id: postgresql-k8s
+    service.syn.tools/name: postgresql-k8s
+    service.syn.tools/updatable: "true"
+  name: xpostgresqlusers.syn.tools
+spec:
+  group: syn.tools
+  names:
+    kind: XPostgreSQLUser
+    plural: xpostgresqlusers
+  claimNames:
+    kind: PostgreSQLUser
+    plural: postgresqlusers
+  connectionSecretKeys:
+  - endpoint
+  - password
+  - username
+  - port
+  defaultCompositionRef:
+    name: postgresqluser
+  versions:
+    - name: v1
+      referenceable: true
+      served: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - parameters
+              properties:
+                parameters:
+                  type: object
+                  required:
+                    - usernameprefix
+                    - secretName
+                  properties:
+                    usernameprefix:
+                      type: string
+                    secretName:
+                      type: string

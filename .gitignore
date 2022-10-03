@@ -1,0 +1,12 @@
+.vscode
+theme
+node_modules
+*.html
+*.pdf
+Caddyfile
+Guardfile
+sample_slides
+
+credentials.json
+.kind/
+.work/

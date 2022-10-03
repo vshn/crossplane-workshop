@@ -1,0 +1,9 @@
+apiVersion: appcat.vshn.net/v1
+kind: CloudPostgreSQL
+metadata:
+  name: postgres1
+  namespace: default
+spec:
+  parameters: {}
+  writeConnectionSecretToRef:
+    name: my-pg-instance

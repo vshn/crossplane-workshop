@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="297mm"
+   height="210mm"
+   fill="none"
+   version="1.1"
+   id="svg4"
+   sodipodi:docname="vshn-title-background.svg"
+   inkscape:version="1.0.2 (394de47547, 2021-03-26)">
+  <metadata
+     id="metadata10">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs8" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1866"
+     inkscape:window-height="1016"
+     id="namedview6"
+     showgrid="false"
+     units="mm"
+     inkscape:zoom="0.862"
+     inkscape:cx="613.37725"
+     inkscape:cy="458.76771"
+     inkscape:window-x="54"
+     inkscape:window-y="27"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <path
+     d="m 1022.9229,71.397961 c 32.6794,-18.555882 75.7887,-44.570533 101.546,-69.6399727 V 793.3912 c -40.7176,-23.05474 -78.53,-51.79181 -114.1986,-80.26844 C 978.8567,688.04461 943.62823,664.82522 907.9129,644.46203 864.43483,619.67283 816.54101,602.11599 769.38105,583.35191 696.63313,554.40663 623.76883,527.86 548.93178,503.22359 c -56.73556,-18.677 -118.92706,-37.2218 -151.83287,-84.60342 -18.45297,-26.57196 -28.48059,-55.1618 -20.11382,-86.00145 15.72183,-57.95151 87.86021,-84.91691 146.15529,-104.45997 36.14359,-12.11673 71.8977,-25.02352 108.6841,-35.65912 91.78117,-26.53633 184.27876,-51.07538 275.76464,-78.45005 38.69108,-11.57764 80.6136,-22.936783 115.33468,-42.651619 z"
+     fill="#f6f7f9"
+     id="path2"
+     style="stroke-width:0.791633" />
+  <g
+     inkscape:groupmode="layer"
+     id="layer1"
+     inkscape:label="Layer 1" />
+</svg>

@@ -1,0 +1,25 @@
+---
+# GCP Admin service account secret - used by GCP ProviderConfig
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   namespace: crossplane-system
+#   name: wworkshop-provider-gcp
+# type: Opaque
+# data:
+#   credentials.json: $GCP_CREDENTIALS
+---
+# GCP ProviderConfig with service account secret reference
+apiVersion: gcp.crossplane.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+  namespace: crossplane-system
+spec:
+  projectID: crossplane-testing-363813
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: workshop-provider-gcp
+      key: credentials.json
