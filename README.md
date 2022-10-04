@@ -10,7 +10,7 @@ Author: Simon Beck (simon.beck@vshn.ch)
 * docker
 * GCP credentials.json in root of this repository
 
-== Crossplane Setup
+## Crossplane Setup
 
 **Enable Cloud SQL Admin API for the project and Compute Engine API**
 
