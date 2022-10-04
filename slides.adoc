@@ -26,6 +26,8 @@ image:crossplane.svg[width=250]
 . How Does Crossplane work?
 . Let's Build a GCP Service
 . Let's Build a Selfmade Service
+. How Do I Terraform?!
+. AppCat?!
 
 == Glossary
 
