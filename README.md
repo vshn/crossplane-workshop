@@ -1,8 +1,8 @@
-= Crossplane Workshop
+# Crossplane Workshop
 
 Author: Simon Beck (simon.beck@vshn.ch)
 
-== Requirements
+## Requirements
 * Kubectl
 * Go
 * make
@@ -45,7 +45,7 @@ Completely remove kind cluster
 `make clean-kind`
 **This will delete the cluster!** Any external cloudsql database will still exist.
 
-== Build slides.html
+## Build slides.html
 
 `make slides.html`
 
