@@ -15,7 +15,7 @@ Author: Simon Beck (simon.beck@vshn.ch)
 **Enable Cloud SQL Admin API for the project and Compute Engine API**
 
 Install local kind cluster and crossplane:
-`make local-setup`
+`make local-install`
 
 Install stackgres:
 `make setup-stackgres`
