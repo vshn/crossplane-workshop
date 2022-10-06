@@ -66,8 +66,10 @@ provider-sql:
 clean-crossplane: export KUBECONFIG = $(KIND_KUBECONFIG)
 clean-crossplane:
 	for xrd in $$(kubectl get compositeresourcedefinitions.apiextensions.crossplane.io | grep -v NAME|cut -d " " -f1); do kubectl delete compositeresourcedefinitions.apiextensions.crossplane.io $$xrd; done
+	for comp in $$(kubectl get compositions.apiextensions.crossplane.io | grep -v NAME|cut -d " " -f1); do kubectl delete compositions.apiextensions.crossplane.io $$comp; done
 	for crd in $$(kubectl get crd | grep gcp|cut -d " " -f1); do kubectl delete crd $$crd; done
 	for crd in $$(kubectl get crd | grep kubernetes|cut -d " " -f1); do kubectl delete crd $$crd; done
+	for crd in $$(kubectl get crd | grep helm|cut -d " " -f1); do kubectl delete crd $$crd; done
 	for crd in $$(kubectl get crd | grep tf|cut -d " " -f1); do kubectl delete crd $$crd; done
 	for controllerconfig in $$(kubectl get controllerconfigs.pkg.crossplane.io | grep -v NAME |cut -d " " -f1); do kubectl delete controllerconfigs.pkg.crossplane.io $$controllerconfig; done
 	for provider in $$(kubectl get providers.pkg.crossplane.io | grep -v NAME |cut -d " " -f1); do kubectl delete providers.pkg.crossplane.io $$provider; done
