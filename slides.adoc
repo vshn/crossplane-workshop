@@ -232,9 +232,15 @@ Any questions so far?
 
 == Let's Look at a CloudSQL
 
+image:provider.drawio.svg[]
+
 == Let's Look at a Selfmade Service
 
+image:operator.drawio.svg[]
+
 == How Do I Terraform?
+
+image:terraform.drawio.svg[]
 
 == Negative Points of Crossplane
 
