@@ -26,6 +26,7 @@ spec:
               tier: db-custom-1-3840
               dataDiskSizeGb: 20
               ipConfiguration:
+                ipv4Enabled: true
                 authorizedNetworks:
                   - name: all
                     value: '0.0.0.0/0'
@@ -54,7 +55,7 @@ spec:
           combine:
             variables:
             - fromFieldPath: spec.parameters.resources.cpu
-            - fromFieldPath: spec.parameters.resources.cpu
+            - fromFieldPath: spec.parameters.resources.memory
             strategy: string
             string:
               fmt: "db-custom-%s-%s"
